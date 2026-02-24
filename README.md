@@ -32,7 +32,6 @@ process.env.GM_TOKEN = "your_access_token_here";
 ### Creating and using a Bot
 
 ```js
-require("dotenv").config();
 const { Bot } = require("groupme.js");
 
 const GROUP_ID = process.env.GROUP_ID; // Your group ID
@@ -41,6 +40,7 @@ async function main() {
     // Create a new bot in the group
     const bot = await Bot.create("My Bot", GROUP_ID);
     console.log("Bot created with ID:", bot.botId);
+    // Save bot.botId somewhere — it persists until you delete the bot on the dashboard
 
     // Send a text message
     await bot.sendMessage("Hello, GroupMe!");
@@ -51,6 +51,14 @@ async function main() {
 
 main();
 ```
+
+> **Tip:** Bot IDs are permanent. Once created, a bot continues to exist on GroupMe's servers until you explicitly delete it (via `API.destroyBot(botId)` or through the [developer dashboard](https://dev.groupme.com/bots)). You can persist the `bot.botId` value and reconnect to the same bot in future runs:
+>
+> ```js
+> const BOT_ID = "your_stored_bot_id";
+> const bot = new Bot(BOT_ID); // reconnect without calling Bot.create() again
+> await bot.sendMessage("Back online!");
+> ```
 
 ### Using the API directly
 
@@ -78,9 +86,41 @@ main();
 
 ### `Bot`
 
-#### `Bot.create(name, groupId)` → `Promise<Bot>`
+#### `Bot.create(name, groupId, [options])` → `Promise<Bot>`
 
-Creates a new GroupMe bot with the given name in the specified group.
+Creates a new GroupMe bot with the given name in the specified group and returns a `Bot` instance.
+
+The `options` object supports the following fields:
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `avatar_url` | string | URL of an image to use as the bot's avatar |
+| `callback_url` | string | A URL GroupMe will POST new messages to (see [Webhooks](#webhooks)) |
+| `dm_notification` | boolean | Whether the bot should receive DM notifications |
+| `active` | boolean | Whether the bot is active (required by the API) |
+
+```js
+const bot = await Bot.create("My Bot", GROUP_ID, {
+    avatar_url: "https://i.groupme.com/123456789",
+    callback_url: "https://your-server.com/webhook",
+    active: true,
+});
+```
+
+#### `new Bot(botId)`
+
+Instantiates a `Bot` from an existing bot ID. Bot IDs are permanent — they survive process restarts and exist on GroupMe's servers until the bot is explicitly deleted. Store `bot.botId` after creation and reuse it later:
+
+```js
+// First run: create and persist the ID
+const bot = await Bot.create("My Bot", GROUP_ID);
+fs.writeFileSync("bot_id.txt", bot.botId);
+
+// Subsequent runs: reconnect without re-creating
+const botId = fs.readFileSync("bot_id.txt", "utf8");
+const bot = new Bot(botId);
+await bot.sendMessage("I'm back!");
+```
 
 #### `bot.sendMessage(text, [attachments])` → `Promise<void>`
 
@@ -217,6 +257,63 @@ try {
     }
 }
 ```
+
+---
+
+## Webhooks
+
+When you create a bot with a `callback_url`, GroupMe will send an HTTP POST request to that URL every time a new message is posted in the group. The request body is a JSON object that can be parsed with `API.Message.from()`.
+
+The example below creates an Express server and a bot. Each incoming group message is parsed as an `API.Message`, and the bot replies to any message that starts with `!hello`.
+
+```js
+const express = require("express");
+const { Bot, API } = require("groupme.js");
+
+const GROUP_ID = process.env.GROUP_ID;
+const PORT = 3000;
+const PUBLIC_URL = "https://your-server.com"; // must be publicly reachable by GroupMe
+
+const app = express();
+app.use(express.json());
+
+let bot;
+
+// GroupMe POSTs each new group message to this endpoint
+app.post("/webhook", async (req, res) => {
+    res.sendStatus(200); // respond quickly so GroupMe doesn't retry
+
+    const message = API.Message.from(req.body);
+
+    // Ignore messages sent by bots (including ourselves)
+    if (!message.isFromUser()) return;
+
+    if (message.startsWith("!hello")) {
+        await bot.sendMessage(`Hello, ${message.name}!`);
+    }
+
+    // Check for image attachments
+    const images = message.attachments.filter(a => a instanceof API.ImageAttachment);
+    if (images.length > 0) {
+        await bot.sendMessage(`Nice image, ${message.name}!`);
+    }
+});
+
+async function main() {
+    bot = await Bot.create("Webhook Bot", GROUP_ID, {
+        callback_url: `${PUBLIC_URL}/webhook`,
+        active: true,
+    });
+    console.log("Bot created:", bot.botId);
+    // Persist bot.botId if you want to reuse it without re-creating the bot
+
+    app.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+}
+
+main();
+```
+
+> **Note:** GroupMe requires `callback_url` to be a publicly accessible HTTPS URL. For local development you can use a tunnel like [ngrok](https://ngrok.com/).
 
 ## License
 
