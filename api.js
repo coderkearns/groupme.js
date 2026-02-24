@@ -137,7 +137,7 @@ class API {
     // BOTS
     // ==========================================
     static getBots() { return this.request('GET', '/bots'); }
-    static createBot(name, group_id) { return this.request('POST', '/bots', { bot: { name, group_id } }); }
+    static createBot(name, group_id, options = {}) { return this.request('POST', '/bots', { bot: { name, group_id, ...options } }); }
     static postBot(bot_id, text, attachments = []) { return this.request('POST', '/bots/post', { bot_id, text, attachments }); }
     static destroyBot(botId) { return this.request('POST', '/bots/destroy', { bot_id: botId }); }
 
@@ -217,7 +217,11 @@ module.exports.ImageAttachment = ImageAttachment;
 
 class Message {
     constructor(data) {
-        this.attachments = data.attachments || [];
+        this.attachments = (data.attachments || []).map(a => {
+            if (a.type === 'image') return new ImageAttachment(a.url);
+            if (a.type === 'location') return new LocationAttachment(a.lat, a.lng, a.name);
+            return a;
+        });
         this.avatarUrl = data.avatar_url;
         this.createdAt = data.created_at;
         this.groupId = data.group_id;
