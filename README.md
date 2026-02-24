@@ -32,9 +32,10 @@ process.env.GM_TOKEN = "your_access_token_here";
 ### Creating and using a Bot
 
 ```js
+require("dotenv").config();
 const { Bot } = require("groupme.js");
 
-const GROUP_ID = 1234567890; // Your group ID
+const GROUP_ID = process.env.GROUP_ID; // Your group ID
 
 async function main() {
     // Create a new bot in the group
@@ -45,7 +46,7 @@ async function main() {
     await bot.sendMessage("Hello, GroupMe!");
 
     // Send a message with a local image
-    await bot.sendImage("Check this out!", "./image.png");
+    await bot.sendImage("Check this out!", "./example_image.png");
 }
 
 main();
@@ -54,6 +55,7 @@ main();
 ### Using the API directly
 
 ```js
+require("dotenv").config();
 const { API } = require("groupme.js");
 
 async function main() {
