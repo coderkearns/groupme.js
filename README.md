@@ -5,7 +5,7 @@ A simple Node.js library for interacting with the [GroupMe API](https://dev.grou
 ## Installation
 
 ```sh
-npm install groupme.js
+npm install https://github.com/coderkearns/groupme.js.git
 ```
 
 ## Setup
