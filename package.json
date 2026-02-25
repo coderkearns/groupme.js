@@ -6,7 +6,11 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "groupme",
+    "api",
+    "bot"
+  ],
   "author": "coderkearns [https://github.com/coderkearns]",
   "license": "ISC",
   "packageManager": "pnpm@10.29.3",
